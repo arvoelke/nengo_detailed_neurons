@@ -87,17 +87,17 @@ class IntFire1(_LIFBase, NrnNeuron):
 
 
 class Bahr2(Compartmental):
-    probeable = ('spikes', 'voltage')
+    probeable = ('spikes', 'voltage', 'current')
     Cell = namedtuple('Cell', ['neuron', 'bias', 'spikes', 'out_con'])
     # FIXME hard coded path
     rate_table = np.load(
-        '/home/jgosmann/Documents/projects/nengo_detailed_neurons/'
+        '/home/arvoelke/CTN/nengo_detailed_neurons/'
         'data/bahl2_response_curve.npz')
 
     def __init__(self):
         super(Bahr2, self).__init__()
         # FIXME hard coded path
-        model_path = '/home/jgosmann/Documents/projects/' \
+        model_path = '/home/arvoelke/CTN/' \
             'nengo_detailed_neurons/models/bahr2.hoc'
         neuron.h.load_file(model_path)
 
@@ -109,6 +109,7 @@ class Bahr2(Compartmental):
         ap_counter = neuron.h.APCount(cell.soma(0.5))
         spikes = neuron.h.Vector()
         ap_counter.record(neuron.h.ref(spikes))
+        cell.soma.insert('extracellular')  # make i_membrane available
         return self.Cell(
             neuron=cell, bias=bias, spikes=spikes, out_con=ap_counter)
 
@@ -133,7 +134,7 @@ class Bahr2(Compartmental):
         bias = min_j - gain * intercepts
         return gain, bias
 
-    def step_math(self, dt, J, spiked, cells, voltage):
+    def step_math(self, dt, J, spiked, cells, voltage, current):
         for c in cells:
             c.spikes.resize(0)
 
@@ -144,3 +145,4 @@ class Bahr2(Compartmental):
         spiked[:] = [c.spikes.size() > 0 for c in cells]
         spiked /= dt
         voltage[:] = [c.neuron.soma.v for c in cells]
+        current[:] = [c.neuron.soma(0).i_membrane for c in cells]

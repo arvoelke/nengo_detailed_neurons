@@ -17,14 +17,17 @@ from nengo_detailed_neurons.synapses import ExpSyn
 
 
 class SimNrnPointNeurons(Operator):
-    def __init__(self, neurons, J, output, voltage):
+    def __init__(self, neurons, J, output, voltage, current=None):
         self.neurons = neurons
         self.J = J
         self.output = output
         self.voltage = voltage
 
+        args = [] if current is None else [current]
+        self.args = args 
+
         self.reads = [J]
-        self.sets = [output, voltage]
+        self.sets = [output, voltage] + args
         self.updates = []
         self.incs = []
 
@@ -35,9 +38,10 @@ class SimNrnPointNeurons(Operator):
         J = signals[self.J]
         output = signals[self.output]
         voltage = signals[self.voltage]
+        args = [signals[arg] for arg in self.args]
 
         def step():
-            self.neurons.step_math(dt, J, output, self.cells, voltage)
+            self.neurons.step_math(dt, J, output, self.cells, voltage, *args)
         return step
 
 
@@ -72,11 +76,15 @@ def build_nrn_neuron(model, nrn, ens):
     model.sig[ens]['voltage'] = Signal(
         np.zeros(ens.ensemble.n_neurons),
         name="%s.voltage" % ens.ensemble.label)
+    model.sig[ens]['current'] = Signal(
+        np.zeros(ens.ensemble.n_neurons),
+        name="%s.current" % ens.ensemble.label)
     op = SimNrnPointNeurons(
         neurons=nrn,
         J=model.sig[ens]['in'],
         output=model.sig[ens]['out'],
-        voltage=model.sig[ens]['voltage'])
+        voltage=model.sig[ens]['voltage'],
+        current=model.sig[ens]['current'])
     ens_to_cells[ens.ensemble] = op.cells
     model.add_op(op)
 
